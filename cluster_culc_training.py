@@ -36,10 +36,12 @@ from src.plotters import plot_random_images, plot_images
 from copy import deepcopy
 import json
 
-from tqdm import tqdm_notebook as tqdm
+from tqdm import tqdm
 from IPython.display import clear_output
 
+import wandb # <--- online logging of the results
 from src.tools import fig2data, fig2img # for wandb
+
 
 # This needed to use dataloaders for some datasets
 from PIL import PngImagePlugin
@@ -115,7 +117,6 @@ def main():
     print('f params:', np.sum([np.prod(p.shape) for p in f.parameters()]))
 
 
-
     torch.manual_seed(0xBADBEEF); np.random.seed(0xBADBEEF)
     X_fixed = X_sampler.sample(10)
     Y_fixed = Y_sampler.sample(10)
@@ -128,10 +129,13 @@ def main():
     fig, axes = plot_random_images(X_test_sampler, Y_test_sampler, T)
     plt.savefig('sart_fig_test.png')
     
+    wandb.init(name=EXP_NAME, project='ml_ot_cluster', entity='mygetsy16',
+               config=config)
+    
     T_opt = torch.optim.Adam(T.parameters(), lr=T_LR, weight_decay=1e-10)
     f_opt = torch.optim.Adam(f.parameters(), lr=f_LR, weight_decay=1e-10)
     
-    for step in tqdm(range(MAX_STEPS)):
+    for step in range(MAX_STEPS):
     # T optimization
         unfreeze(T); freeze(f)
         for t_iter in range(T_ITERS): 
@@ -154,6 +158,7 @@ def main():
         f_opt.zero_grad()
         f_loss = f(T_X).mean() - f(Y).mean()
         f_loss.backward(); f_opt.step();
+        wandb.log({'Fixed Images' : [wandb.Image(fig2img(fig))]}, step=step) 
         print({f'f_loss' : f_loss.item()}, step) 
         del f_loss, Y, X, T_X; gc.collect(); torch.cuda.empty_cache()
             
@@ -162,17 +167,20 @@ def main():
             clear_output(wait=True)
             
             fig, axes = plot_images(X_fixed, Y_fixed, T)
-    
-            plt.show(fig); plt.close(fig) 
+            wandb.log({'Fixed Images' : [wandb.Image(fig2img(fig))]}, step=step) 
+            # plt.show(fig); plt.close(fig) 
             
             fig, axes = plot_random_images(X_sampler,  Y_sampler, T)
-            plt.show(fig); plt.close(fig) 
+            wandb.log({'Fixed Images' : [wandb.Image(fig2img(fig))]}, step=step) 
+            # plt.show(fig); plt.close(fig) 
             
             fig, axes = plot_images(X_test_fixed, Y_test_fixed, T)
-            plt.show(fig); plt.close(fig) 
+            wandb.log({'Fixed Images' : [wandb.Image(fig2img(fig))]}, step=step) 
+            # plt.show(fig); plt.close(fig) 
             
             fig, axes = plot_random_images(X_test_sampler, Y_test_sampler, T)
-            plt.show(fig); plt.close(fig) 
+            wandb.log({'Fixed Images' : [wandb.Image(fig2img(fig))]}, step=step) 
+            # plt.show(fig); plt.close(fig) 
         
         if step % CPKT_INTERVAL == CPKT_INTERVAL - 1:
             freeze(T); 
@@ -180,6 +188,7 @@ def main():
             print('Computing FID')
             mu, sigma = get_pushed_loader_stats(T, X_test_sampler.loader)
             fid = calculate_frechet_distance(mu_data, sigma_data, mu, sigma)
+            wandb.log({f'FID (Test)' : fid}, step=step)
             print({f'FID (Test)' : fid}, step)
             del mu, sigma
             
@@ -193,7 +202,8 @@ def main():
     
 
 
-
+if __name__ == '__main__':
+    main()
 
 
 
