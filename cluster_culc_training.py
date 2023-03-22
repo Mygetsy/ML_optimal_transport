@@ -32,6 +32,7 @@ from src.tools import load_dataset, get_pushed_loader_stats
 from src.tools import load_dataset, get_loader_stats
 from src.fid_score import calculate_frechet_distance
 from src.plotters import plot_random_images, plot_images
+from src.mapper import sampler_to_hdf5
 
 from copy import deepcopy
 import json
@@ -52,7 +53,7 @@ PngImagePlugin.MAX_TEXT_CHUNK = LARGE_ENOUGH_NUMBER * (1024**2)
 
 
 
-def main():
+def main(restart_calculation=False, ITER_NUM=0):
     DEVICE_IDS = [0]
 
     DATASET1, DATASET1_PATH = 'shoes', './shoes_64.hdf5'
@@ -109,6 +110,10 @@ def main():
     
     T = UNet(3, 3, base_factor=48).cuda()
     
+    if restart_calculation:
+        T.load_state_dict(torch.load(OUTPUT_PATH + './T_0_' + str(ITER_NUM) + '.pt'))
+        f.load_state_dict(torch.load(OUTPUT_PATH + './f_0_' + str(ITER_NUM) + '.pt'))
+    
     if len(DEVICE_IDS) > 1:
         T = nn.DataParallel(T, device_ids=DEVICE_IDS)
         f = nn.DataParallel(f, device_ids=DEVICE_IDS)
@@ -132,10 +137,15 @@ def main():
     wandb.init(name=EXP_NAME, project='ml_ot_cluster', entity='mygetsy16',
                config=config)
     
-    T_opt = torch.optim.Adam(T.parameters(), lr=T_LR, weight_decay=1e-10)
-    f_opt = torch.optim.Adam(f.parameters(), lr=f_LR, weight_decay=1e-10)
     
-    for step in range(MAX_STEPS):
+    if restart_calculation:
+        T_opt.load_state_dict(torch.load(OUTPUT_PATH + './T_opt_0_' + str(ITER_NUM) + '.pt'))
+        f_opt.load_state_dict(torch.load(OUTPUT_PATH + './f_opt_0_' + str(ITER_NUM) + '.pt'))
+    else:
+        T_opt = torch.optim.Adam(T.parameters(), lr=T_LR, weight_decay=1e-10)
+        f_opt = torch.optim.Adam(f.parameters(), lr=f_LR, weight_decay=1e-10)
+    
+    for step in range(ITER_NUM, MAX_STEPS):
     # T optimization
         unfreeze(T); freeze(f)
         for t_iter in range(T_ITERS): 
@@ -164,7 +174,7 @@ def main():
             
         if step % PLOT_INTERVAL == 0:
             print('Plotting')
-            clear_output(wait=True)
+#            clear_output(wait=True)
             
             fig, axes = plot_images(X_fixed, Y_fixed, T)
             wandb.log({'Fixed Images' : [wandb.Image(fig2img(fig))]}, step=step) 
@@ -192,7 +202,8 @@ def main():
             print({f'FID (Test)' : fid}, step)
             del mu, sigma
             
-            torch.save(T.state_dict(), 'T.pt')
+#            torch.save(T.state_dict(), 'T.pt')
+            torch.save(T.state_dict(), os.path.join(OUTPUT_PATH, f'T_{SEED}_{step}.pt'))
             torch.save(f.state_dict(), os.path.join(OUTPUT_PATH, f'f_{SEED}_{step}.pt'))
             torch.save(f_opt.state_dict(), os.path.join(OUTPUT_PATH, f'f_opt_{SEED}_{step}.pt'))
             torch.save(T_opt.state_dict(), os.path.join(OUTPUT_PATH, f'T_opt_{SEED}_{step}.pt'))
