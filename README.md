@@ -16,7 +16,7 @@ Two unpaired [datasets](https://github.com/junyanz/iGAN/blob/master/train_dcgan/
 
 ### Example of the results
 
-The example of images produced in a result of the stacking are presented in the following picture. A more complete description of the results can be find in the ```report.pdf``` file.
+The example of images produced in a result of the stacking are presented in the following picture. A more complete description of the results can be find in the ```report.pdf``` and ```presentation.pdf``` files.
 
 <p align="center"><img src="pics/3stacking.PNG" width="550" /></p>
 
