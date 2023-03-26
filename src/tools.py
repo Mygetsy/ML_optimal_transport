@@ -27,7 +27,7 @@ from torchvision.datasets import ImageFolder
 
 
 def load_dataset(name, path, img_size=64, batch_size=64, test_ratio=0.1, device='cuda'):
-    if name in ['shoes', 'handbag', 'outdoor', 'church', 'shoes_map_iter_1']:
+    if name in ['shoes', 'handbag', 'outdoor', 'church', 'shoes_map_iter_1', 'bags_map_iter_1']:
         dataset = h5py_to_dataset(path, img_size)
     elif name in ['celeba_female', 'celeba_male', 'aligned_anime_faces', 'describable_textures']:
         transform = Compose([Resize((img_size, img_size)), ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
